@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Salesforce OmniStudio Helper",
   "author": "Rohitkumar Asare",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Boost Salesforce OmniStudio Productivity with One-Click Access to IP, DR, Flexcards, and OmniScripts.",
   "permissions": [
     "storage",

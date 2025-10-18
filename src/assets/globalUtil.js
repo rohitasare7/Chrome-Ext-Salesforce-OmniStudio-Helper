@@ -26,7 +26,7 @@ export const extractValue = (url) => {
 
     return null;
 }
-
+ 
 const directLinkList = [
     {
         id: 1,

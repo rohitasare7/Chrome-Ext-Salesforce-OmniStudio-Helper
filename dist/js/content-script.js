@@ -2,17 +2,28 @@
 let sfHostStr;
 let objectsFound = [];
 
+// Global map to store tooltip references
+const tooltipMap = new Map();
+
 // Listen for button events
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // Handle the "Find" button
   if (request.msg == "findObjects") {
-    //console.log('inside findObjects');
     const respData = getOSCompList();
     sendResponse({ status: 'success', data: respData });
     return true;
   }
+  
+  // Handle highlight messages
+  if (request.msg === 'HIGHLIGHT_ELEMENT') {
+    const response = highlightElement(request.elementName, request.popupText);
+    sendResponse(response);
+  }
+  else if (request.msg === 'REMOVE_HIGHLIGHT') {
+    const response = removeHighlight(request.elementName);
+    sendResponse(response);
+  }
 });
-
 
 window.addEventListener('load', function () {
   // Send a message to the background script
@@ -49,6 +60,9 @@ function injectStyles() {
     @keyframes gradientRotate {
       0% { background-position: 0% 0%; }
       100% { background-position: 100% 100%; }
+    }
+    .highlight-tooltip {
+      pointer-events: none;
     }
   `;
   document.head.appendChild(style);
@@ -151,10 +165,6 @@ function isLwc(element) {
   return element && element.tagName.includes("-");
 }
 
-// function isStandardLwc(element) {
-//   return element && isLwc(element) && element.tagName.startsWith("LIGHTNING-");
-// }
-
 //Ignore some common items and vlocity package lwc
 const exclusionList = ["C-ICON", "C-NAVIGATE-ACTION", "C-BUTTON"];
 function isCustomLwc(element) {
@@ -179,21 +189,6 @@ function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// function isManagedLwc(element) {
-//   if (isLwc(element) && element.tagName.match("^(VLOCITY_CMT-|VLOCITY_INS-|VLOCITY_PS-)")) {
-//     console.log('element.tagName --> ' + element.tagName);
-//   }
-
-//   return element && isLwc(element) && element.tagName.match("^(VLOCITY_CMT-|VLOCITY_INS-|VLOCITY_PS-)");
-// }
-
-// function getManagedLwcName(element) {
-//   if (!isManagedLwc(element)) return;
-//   let name = element.localName.replace(/^(vlocity_cmt-|vlocity_ins-|vlocity_ps-)/gi, "");
-//   name = name.replace(/-./g, x => x[1].toUpperCase());
-//   return name;
-// }
-
 function isLwcOmniScript(element) {
   // Check for both LWC OmniScript article and standard runtime OmniScript
   return (
@@ -201,7 +196,6 @@ function isLwcOmniScript(element) {
     (element && element.tagName && element.tagName.toLowerCase().includes("forcegenerated-omni-script"))
   );
 }
-
 
 function isOmniScript(element) {
   if (element && element.tagName == "IFRAME") {
@@ -386,7 +380,6 @@ function findOmniStudioComponents(doc) {
   return Array.from(objectsMap.values());
 }
 
-
 const removeDuplicates = (data, nameKey = 'name') => {
   // First filter out Custom types if a non-Custom version exists
   const filteredData = data.reduce((acc, item) => {
@@ -428,94 +421,104 @@ function getOSCompList() {
   }
 }
 
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // console.log('inside event --> ' + JSON.stringify(message));
-  if (message.msg === 'HIGHLIGHT_ELEMENT') {
-    //console.log('inside HIGHLIGHT_ELEMENT');
-    const response = highlightElement(message.elementName, message.popupText);
-    sendResponse(response);
-  }
-  else if (message.msg === 'REMOVE_HIGHLIGHT') {
-    const response = removeHighlight(message.elementName);
-    sendResponse(response);
-  }
-  return false; // Not doing any async work
-});
-
-// Method to highlight the child element
+// Method to highlight the child element - alternative approach
 function highlightElement(selector, elementName) {
-  const parentElement = document.querySelector(selector); // Parent element
+  // First remove any existing highlights
+  removeHighlight(selector);
+  
+  const parentElement = document.querySelector(selector);
   if (parentElement) {
-    // Select the first child div
     const childDiv = parentElement.querySelector('div');
     if (childDiv) {
-      const originalPosition = childDiv.style.position || null;
-      childDiv.setAttribute('osh-data-original-position', originalPosition);
+      // Store original border
+      const originalBorder = childDiv.style.border;
+      childDiv.setAttribute('data-original-border', originalBorder);
 
-      childDiv.style.border = '3px solid #007bff'; // Apply border instead of outline
-      childDiv.style.padding = '2px'; // Optionally add padding to make it stand out more
-      childDiv.style.borderRadius = '5px'; // Optional: rounded corners for a softer look
-      childDiv.style.boxShadow = '0 4px 15px rgba(0, 123, 255, 0.5)'; // Subtle glow effect
+      // Apply highlight styles
+      childDiv.style.border = '3px solid #007bff';
 
-      // Create a tooltip element
+      // Create tooltip and append it to the parent element
       const tooltip = document.createElement('div');
-      tooltip.classList.add('highlight-tooltip');
-      tooltip.innerText = elementName;
+      tooltip.className = 'highlight-tooltip';
+      tooltip.textContent = elementName;
+      
+      Object.assign(tooltip.style, {
+        position: 'absolute',
+        backgroundColor: '#007bff',
+        color: 'white',
+        padding: '5px 10px',
+        borderRadius: '0.5rem',
+        fontSize: '12px',
+        zIndex: '10000',
+        boxShadow: '0 4px 15px rgba(0, 123, 255, 0.5)',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        top: '-30px', // Position above the parent
+        left: '0px'
+      });
 
-      // Apply tooltip styles
-      tooltip.style.position = 'absolute';
-      tooltip.style.backgroundColor = '#007bff';
-      tooltip.style.color = 'white';
-      tooltip.style.padding = '5px 10px';
-      tooltip.style.borderRadius = '.5rem';
-      tooltip.style.fontSize = '12px';
-      tooltip.style.zIndex = '9999';
-      tooltip.style.boxShadow = '0 4px 15px rgba(0, 123, 255, 0.5)';
+      // Make parent element relative positioned for absolute positioning context
+      const originalParentPosition = parentElement.style.position;
+      parentElement.style.position = 'relative';
+      parentElement.setAttribute('data-original-position', originalParentPosition);
 
-      // Position the tooltip relative to the childDiv without modifying its position
-      const rect = childDiv.getBoundingClientRect();
-      tooltip.style.top = `${rect.top - 30}px`; // Position above the element
-      tooltip.style.left = `${rect.left}px`;
+      parentElement.appendChild(tooltip);
 
-      // Append the tooltip to the document body
-      document.body.appendChild(tooltip);
+      // Store references
+      tooltipMap.set(selector, {
+        tooltip,
+        childDiv,
+        parentElement,
+        selector
+      });
 
-      // Store the tooltip reference for removal later
-      childDiv._tooltipElement = tooltip;
-
-      return { success: true, message: 'Child element highlighted.' };
-    } else {
-      return { success: false, message: 'Child div not found.' };
+      return { success: true, message: 'Element highlighted.' };
     }
-  } else {
-    return { success: false, message: 'Parent element not found.' };
+    return { success: false, message: 'Child div not found.' };
   }
+  return { success: false, message: 'Parent element not found.' };
 }
 
-// Method to remove the highlight from the child element
+// Update removeHighlight to handle the parent positioning
 function removeHighlight(selector) {
-  const parentElement = document.querySelector(selector); // Parent element
-  if (parentElement) {
-    const childDiv = parentElement.querySelector('div');
+  let removed = false;
+  
+  if (selector && tooltipMap.has(selector)) {
+    const { tooltip, childDiv, parentElement } = tooltipMap.get(selector);
+    
+    // Remove styles from child div
     if (childDiv) {
-      childDiv.style.border = ''; // Remove border
-      childDiv.style.padding = ''; // Remove padding if added
-      childDiv.style.borderRadius = ''; // Remove border radius if added
-      childDiv.style.boxShadow = ''; // Remove box shadow if added
-      // Remove the tooltip if it exists
-      if (childDiv._tooltipElement) {
-        const tooltip = childDiv._tooltipElement; // Retrieve the stored tooltip reference
-        if (tooltip.parentNode) {
-          tooltip.parentNode.removeChild(tooltip); // Remove tooltip from the DOM
-        }
-        delete childDiv._tooltipElement; // Clean up reference to avoid memory leaks
-      }
-      return { success: true, message: 'Highlight removed.' };
-    } else {
-      return { success: false, message: 'Child div not found.' };
+      const originalBorder = childDiv.getAttribute('data-original-border');
+      if (originalBorder !== null) childDiv.style.border = originalBorder;
+      else childDiv.style.border = '';
+      childDiv.removeAttribute('data-original-border');
     }
-  } else {
-    return { success: false, message: 'Parent element not found.' };
+    
+    // Restore parent element positioning
+    if (parentElement) {
+      const originalPosition = parentElement.getAttribute('data-original-position');
+      if (originalPosition !== null) parentElement.style.position = originalPosition;
+      else parentElement.style.position = '';
+      parentElement.removeAttribute('data-original-position');
+    }
+    
+    // Remove tooltip
+    if (tooltip && tooltip.parentNode) {
+      tooltip.parentNode.removeChild(tooltip);
+      removed = true;
+    }
+    
+    tooltipMap.delete(selector);
   }
+  
+  // Remove all tooltips
+  const allTooltips = document.querySelectorAll('.highlight-tooltip');
+  allTooltips.forEach(tooltip => {
+    if (tooltip.parentNode) {
+      tooltip.parentNode.removeChild(tooltip);
+      removed = true;
+    }
+  });
+
+  return { success: true, message: 'Highlight removed.', removed: removed };
 }

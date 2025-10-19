@@ -5,6 +5,7 @@ import TextDesc from './elements/TextDesc.vue';
 import PrimaryButton from "../components/elements/PrimaryButton.vue";
 import SVGIconButton from "./elements/SVGIconButton.vue";
 import Icon_Help from "@/assets/icons/Icon_Help.vue";
+import Icon_Copy from "@/assets/icons/Icon_Copy.vue";
 import LoadingCircle from "./elements/LoadingCircle.vue";
 
 const isLoading = ref(false);
@@ -120,6 +121,62 @@ const sendHighlightMessage = (elementName, msg, popupText) => {
   });
 }
 
+const copiedItemId = ref(null);
+// Copy to clipboard function
+const copyToClipboardStr = async (text) => {
+  try {
+    // Try using the modern Clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      console.log('Copied to clipboard using Clipboard API');
+      return true;
+    } else {
+      // Fallback for older browsers or insecure contexts
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+
+      // Make the textarea out of viewport
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      if (successful) {
+        console.log('Copied to clipboard using execCommand');
+        return true;
+      } else {
+        console.error('Failed to copy using execCommand');
+        return false;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to copy text to clipboard:', err);
+    return false;
+  }
+}
+
+const copyToClipboard = async (text, itemId, elementName) => {
+  try {
+    await copyToClipboardStr(text);
+    copiedItemId.value = itemId;
+    // Use elementName instead of itemId for removeHighlight
+    //sendHighlightMessage(elementName, 'REMOVE_HIGHLIGHT', text);
+    setTimeout(() => {
+      copiedItemId.value = null;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy:', err);
+  }
+}
+
+const handleCellClick = (item) => {
+  copyToClipboard(item.name, item.name, item.elementName);
+}
 </script>
 
 <template>
@@ -146,10 +203,20 @@ const sendHighlightMessage = (elementName, msg, popupText) => {
               <tbody>
                 <tr v-for="item in items" :key="item.name">
                   <td
-                    class="px-4 py-2 bg-white text-gray-700 border-b hover:bg-blue-700 hover:text-white font-medium whitespace-nowrap cursor-pointer hover:shadow-2xl transition ease-in-out duration-300"
+                    class="group px-4 py-2 bg-white text-gray-700 border-b hover:bg-blue-700 hover:text-white font-medium whitespace-nowrap cursor-pointer hover:shadow-2xl transition ease-in-out duration-300"
                     @mouseover="sendHighlightMessage(item.elementName, 'HIGHLIGHT_ELEMENT', item.name)"
-                    @mouseleave="sendHighlightMessage(item.elementName, 'REMOVE_HIGHLIGHT', item.name)">
-                    {{ item.name }}
+                    @mouseleave="sendHighlightMessage(item.elementName, 'REMOVE_HIGHLIGHT', item.name)"
+                    @click="handleCellClick(item)">
+                    <div class="flex items-center">
+                      {{ item.name }}
+                      <Icon_Copy
+                        class="w-4 h-4 stroke-2 transition duration-75 fill-gray-300 group-hover:fill-white dark:fill-blue-100 ml-2"
+                        title="Copy Element Name" />
+                      <span v-if="copiedItemId === item.name"
+                        class="ml-2 text-xs bg-blue-800 text-white px-2 py-1 rounded">
+                        Copied!
+                      </span>
+                    </div>
                   </td>
                 </tr>
               </tbody>

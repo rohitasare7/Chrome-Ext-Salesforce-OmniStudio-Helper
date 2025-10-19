@@ -454,7 +454,7 @@ onMounted(async () => {
       <div v-if="orgNameSpace" class="flex flex-col items-end">
         <div class="flex items-center justify-end mb-2">
           <TextDesc class="mr-3">Package :
-            <span class="font-semibold">{{ orgNameSpace == "omnistudio" ? "Standard SF Core" : "Vlocity Managed Package"
+            <span v-if="!showSelectNameSpace" class="font-semibold">{{ orgNameSpace == "omnistudio" ? "Standard SF Core" : "Vlocity Managed Package"
             }}</span>
           </TextDesc>
           <select v-if="showSelectNameSpace" v-model="orgNameSpace" @change="onSelectChangeNameSpace"
@@ -463,7 +463,7 @@ onMounted(async () => {
             <option value="vlocity_cmt">Vlocity Managed Package</option>
           </select>
           <SVGIconButton @click="showSelectNameSpace = !showSelectNameSpace" :icon="Icon_Settings" :isSquare="false"
-            color="gray" class="!p-1 ml-2 !shadow-white !border-none" title="Add to Favorite" />
+            color="gray" class="!p-1 ml-2 !shadow-none !border-none" title="Add to Favorite" />
         </div>
 
         <div v-if="showSelectNameSpace"
@@ -577,10 +577,16 @@ onMounted(async () => {
 
     <!--footer/credits block ends here-->
     <div v-if="sfHostURL && recordList.length > 0" class="flex items-end justify-end mt-10">
+      <div class="flex flex-col items-end">
       <TextDesc>Salesforce OmniStudio Helper by
         <a href="https://www.youtube.com/@ThatSalesforceGuy" target="_blank"
           class="text-blue-700 font-semibold dark:text-blue-400">That Salesforce Guy</a>
       </TextDesc>
+      <TextDesc class="mt-2">Debug OmniScript/FlexCard in Runtime Mode using 
+        <a href="http://bit.ly/46ZQK7Y" target="_blank"
+          class="text-blue-700 font-semibold dark:text-blue-400">OmniStudio Debugger</a>
+      </TextDesc>
+      </div>
     </div>
   </div>
 

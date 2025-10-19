@@ -27,30 +27,42 @@ export const extractValue = (url) => {
     return null;
 }
 
+//Active
+const stdOmniScriptBuilderURL = '.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=omniscript&id='; // OS
+const stdIPBuilderURL = '.lightning.force.com/builder_industries_interaction_rule/industriesBuilder.app?fileType=IntegrationProcedure&fileName='; // IP
+const stdDRBuilderURL = '.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=dataraptor&id='; // DR
+const stdFlexCardBuilderURL = '.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=flexcard&id='; // FlexCard
+
+//legacy - not in use
+const vlocityMPOmniScriptBuilderURL = '.vf.force.com/lightning/cmp/vlocity_cmt__OmniDesignerAuraWrapper?c__recordId='; // OS
+const vlocityMPIPBuilderURL = '.vf.force.com/apex/vlocity_cmt__integrationproceduredesigner?id='; // IP
+const vlocityMPDRBuilderURL = '.vf.force.com/apex/vlocity_cmt__drmapper?id='; // DR
+const vlocityMPFlexCardBuilderURL = '/lightning/r/vlocity_cmt__VlocityCard__c/'; // FlexCard
+
 const directLinkList = [
     {
         id: 1,
         obj: 'OmniScript',
-        omnistudio: `.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=omniscript&id=`,
-        vlocity_cmt: `.vf.force.com/lightning/cmp/vlocity_cmt__OmniDesignerAuraWrapper?c__recordId=`,
+        omnistudio: stdOmniScriptBuilderURL,
+        vlocity_cmt: stdOmniScriptBuilderURL, //setting standard builder
     },
     {
         id: 2,
         obj: 'IntegrationProcedure',
-        omnistudio: `.lightning.force.com/builder_industries_interaction_rule/industriesBuilder.app?fileType=IntegrationProcedure&fileName=`,
-        vlocity_cmt: `.vf.force.com/apex/vlocity_cmt__integrationproceduredesigner?id=`,
+        omnistudio: stdIPBuilderURL,
+        vlocity_cmt: stdIPBuilderURL,
     },
     {
         id: 3,
         obj: 'FlexCard',
-        omnistudio: `.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=flexcard&id=`,
-        vlocity_cmt: `/lightning/r/vlocity_cmt__VlocityCard__c/`,
+        omnistudio: stdFlexCardBuilderURL,
+        vlocity_cmt: stdFlexCardBuilderURL,
     },
     {
         id: 4,
         obj: 'DataRaptor',
-        omnistudio: `.lightning.force.com/builder_omnistudio/omnistudioBuilder.app?type=dataraptor&id=`,
-        vlocity_cmt: `.vf.force.com/apex/vlocity_cmt__drmapper?id=`,
+        omnistudio: stdDRBuilderURL,
+        vlocity_cmt: stdDRBuilderURL,
     }
 
 ];
@@ -84,7 +96,6 @@ export const getOrgSuffixURL = (orgIdentifier, recId, type, sfHostURL, savedName
         case 'FlexCard':
             return `https://${orgIdentifier}${sandboxSuffix}${getRecordLink(savedNamespace, type)}${recId}`;
         case 'IntegrationProcedure':
-            // return `https://${sfHostURL}${getRecordLink(savedNamespace, type)}${recId}/view`;
             return `https://${orgIdentifier}${sandboxSuffix}${getRecordLink(savedNamespace, type)}${recId}`;
         default:
             return null;
@@ -92,9 +103,7 @@ export const getOrgSuffixURL = (orgIdentifier, recId, type, sfHostURL, savedName
 };
 
 export const getSalesforceURL = (orgIdentifier, sfHostURL, recId, type) => {
-    // console.log('sfHostURL ==> ' + sfHostURL);
     const savedNamespace = localStorage.getItem(sfHostURL + "_" + 'ns');
-    console.log('getOrgSuffixURL --> ' + getOrgSuffixURL(orgIdentifier, recId, type, sfHostURL, savedNamespace));
     return getOrgSuffixURL(orgIdentifier, recId, type, sfHostURL, savedNamespace);
 };
 

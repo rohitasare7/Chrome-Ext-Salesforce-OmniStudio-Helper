@@ -5,7 +5,11 @@ import { ref, onMounted, shallowRef } from "vue";
 import { apiVersion, sfConn, formatDate } from "@/assets/helper";
 import { fetchRecords } from "@/assets/storageUtil";
 import { saveRecord } from "@/assets/storageUtil";
-import { extractValue, getSalesforceURL, getComponentQuery } from "@/assets/globalUtil";
+import {
+  extractValue,
+  getSalesforceURL,
+  getComponentQuery,
+} from "@/assets/globalUtil";
 import PrimaryButton from "../elements/PrimaryButton.vue";
 import TextInput from "../elements/TextInput.vue";
 import LoadingCircle from "../elements/LoadingCircle.vue";
@@ -15,6 +19,7 @@ import SVGIconButton from "../elements/SVGIconButton.vue";
 import Icon_Favorite from "@/assets/icons/Icon_Favorite.vue";
 import Icon_Execute from "@/assets/icons/Icon_Execute.vue";
 import Icon_Close from "@/assets/icons/Icon_Close.vue";
+import Icon_Settings from "@/assets/icons/Icon_Settings.vue";
 import FavoriteTable from "./FavoriteTable.vue";
 import Modal from "../elements/Modal.vue";
 //Editor
@@ -45,22 +50,21 @@ const flexCardsLoaded = ref("FlexCards Loaded" + " | " + pageTitle);
 const IPloaded = ref("Integration Procedures Loaded" + " | " + pageTitle);
 const DRloaded = ref("DataRaptors Loaded" + " | " + pageTitle);
 const orgNameSpace = ref("");
+const showSelectNameSpace = ref(false);
 
 const initData = async (url) => {
-  console.log('inside initData 1');
+  console.log("inside initData 1");
   try {
     await sfConn.getSession(url);
     // Ensure the localStorage item is set
     const ns = localStorage.getItem(url + "_" + "ns");
     if (!orgNameSpace.value && ns) {
       orgNameSpace.value = getOrgNamspace();
-      console.log('orgNameSpace.value 2 -> ' + orgNameSpace.value);
+      console.log("orgNameSpace.value 2 -> " + orgNameSpace.value);
       setMainTableHeaders();
+    } else {
+      console.log("ns not found");
     }
-    else {
-      console.log('ns not found');
-    }
-
   } catch (error) {
     console.error("Error getting session: ", error);
     throw error; // Throw error to propagate it to the caller
@@ -118,28 +122,39 @@ const performPostAPIcallout = (url, obj) => {
 
 const getOrgNS = async (sfHost) => {
   extLoading.value = true;
-  console.log('sfHost --> ' + sfHost);
-  let nsUrl = "/services/data/v" + apiVersion + "/query/?q=SELECT+Name,NamespacePrefix+FROM+ApexClass+WHERE+NAME='DRDataPackService'";
-  if (localStorage.getItem(sfHost + "_" + 'ns') == null) {
+  console.log("sfHost --> " + sfHost);
+  let nsUrl =
+    "/services/data/v" +
+    apiVersion +
+    "/query/?q=SELECT+Name,NamespacePrefix+FROM+ApexClass+WHERE+NAME='DRDataPackService'";
+  if (localStorage.getItem(sfHost + "_" + "ns") == null) {
     const nsResp = await performAPIcallout(nsUrl);
     if (nsResp.totalSize == 1 && nsResp.done && nsResp.records.length > 0) {
-      localStorage.setItem(sfHost + "_" + 'ns', nsResp.records[0].NamespacePrefix);
-      console.log('Namespace saved:', nsResp.records[0].NamespacePrefix);
+      localStorage.setItem(
+        sfHost + "_" + "ns",
+        nsResp.records[0].NamespacePrefix
+      );
+      console.log("Namespace saved:", nsResp.records[0].NamespacePrefix);
       setMainTableHeaders(nsResp.records[0].NamespacePrefix);
     }
 
-    let sandboxUrl = "/services/data/v" + apiVersion + "/query/?q=SELECT+IsSandbox,+InstanceName+FROM+Organization";
+    let sandboxUrl =
+      "/services/data/v" +
+      apiVersion +
+      "/query/?q=SELECT+IsSandbox,+InstanceName+FROM+Organization";
     const IS_SANDBOX = "isSandbox";
     const isSandBoxResp = await performAPIcallout(sandboxUrl);
     if (localStorage.getItem(sfHost + "_" + IS_SANDBOX) == null) {
       if (isSandBoxResp.records.length > 0) {
-        localStorage.setItem(sfHost + "_" + IS_SANDBOX, isSandBoxResp.records[0].IsSandbox);
+        localStorage.setItem(
+          sfHost + "_" + IS_SANDBOX,
+          isSandBoxResp.records[0].IsSandbox
+        );
       }
-
     }
   }
   extLoading.value = false;
-}
+};
 
 const setMainTableHeaders = () => {
   tableHeaders.value = [
@@ -229,7 +244,6 @@ const getFlexCardList = async () => {
 const getDataRaptorList = async () => {
   dataLoading.value = true;
   queriedObject.value = "DataRaptor";
-
   let url =
     "/services/data/v" +
     apiVersion +
@@ -330,7 +344,7 @@ const responseJSON = ref(null);
 const requestJSON = ref(null);
 const execuiteErr = ref("");
 
-const apiCalloutBody = ref(null);
+const apiCalloutBody = ref(`{ \n }`);
 const apiResponse = ref(null);
 
 const hitAPIcallout = async () => {
@@ -409,6 +423,12 @@ const closeModal = () => {
     responseJSON.value.modelValue = " ";
   }
 };
+
+const onSelectChangeNameSpace = () => {
+  showSelectNameSpace.value = false;
+  localStorage.setItem(sfHostURL.value + "_" + "ns", orgNameSpace.value);
+};
+
 //On page load
 onMounted(async () => {
   let args = new URLSearchParams(location.search.slice(1));
@@ -420,6 +440,8 @@ onMounted(async () => {
   await getOrgNS(sfHost);
   await initData(sfHost);
 });
+
+
 </script>
 
 <template>
@@ -429,14 +451,28 @@ onMounted(async () => {
     <div class="flex justify-between mb-4">
       <TextDesc v-if="sfHostURL">Current Org : <span class="font-semibold">{{ sfHostURL }}</span>
       </TextDesc>
+      <div v-if="orgNameSpace" class="flex flex-col items-end">
+        <div class="flex items-center justify-end mb-2">
+          <TextDesc class="mr-3">Package :
+            <span class="font-semibold">{{ orgNameSpace == "omnistudio" ? "Standard SF Core" : "Vlocity Managed Package"
+            }}</span>
+          </TextDesc>
+          <select v-if="showSelectNameSpace" v-model="orgNameSpace" @change="onSelectChangeNameSpace"
+            class="ml-2 border border-gray-300 rounded-lg p-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white shadow-sm">
+            <option value="omnistudio">Standard SF Core</option>
+            <option value="vlocity_cmt">Vlocity Managed Package</option>
+          </select>
+          <SVGIconButton @click="showSelectNameSpace = !showSelectNameSpace" :icon="Icon_Settings" :isSquare="false"
+            color="gray" class="!p-1 ml-2 !shadow-white !border-none" title="Add to Favorite" />
+        </div>
 
-      <TextDesc v-if="orgNameSpace" class="mr-3">Package :
-        <span class="font-semibold">{{
-          orgNameSpace == "omnistudio"
-            ? "Standard OmniStudio"
-            : "Vlocity OmniStudio"
-        }}</span>
-      </TextDesc>
+        <div v-if="showSelectNameSpace"
+          class="w-full p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+          <span class="font-medium">Warning!</span> Selecting the wrong namespace may prevent this extension from
+          working correctly.
+        </div>
+      </div>
+
       <div v-else>
         <TextDesc class="text-red-500 font-semibold" v-if="extLoading">
           <PrimaryButton>
@@ -447,7 +483,6 @@ onMounted(async () => {
           No OmniStudio Found
         </TextDesc>
       </div>
-
     </div>
 
     <div v-if="orgNameSpace" class="flex space-x-2">
